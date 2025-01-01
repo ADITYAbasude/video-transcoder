@@ -1,0 +1,9 @@
+[build]
+cmd = "go build -o ./tmp/main.exe ./cmd"
+bin = "./tmp/main.exe"
+
+[log]
+time = false
+
+[screen]
+log_time = false
