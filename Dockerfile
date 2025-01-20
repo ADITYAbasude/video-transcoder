@@ -31,5 +31,8 @@ COPY --from=builder /app/main .
 # Install ffmpeg (if needed in the final image)
 RUN apk add --no-cache ffmpeg
 
+# Expose port 8080 to the outside world and 50051 for gRPC
+EXPOSE 8080 50051
+
 # Command to run the executable
 CMD ["./main"]
