@@ -9,6 +9,7 @@ import (
 	"video-transcoder-service/internal/transcoder"
 	pb "video-transcoder-service/proto"
 
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 )
 
@@ -52,7 +53,10 @@ func healthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-
+	// Load .env file
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Warning: Error loading .env file: %v", err)
+	}
 	// Initialize S3 handler
 	s3Handler, err := transcoder.NewS3Handler(os.Getenv("AWS_DOWNLOAD_BUCKET_NAME"), os.Getenv("AWS_UPLOAD_BUCKET_NAME"))
 	if err != nil {

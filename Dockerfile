@@ -1,38 +1,42 @@
 # Stage 1: Build the Go application
 FROM golang:1.23.0-alpine AS builder
 
-# Install ffmpeg
-RUN apk add --no-cache ffmpeg
+# Install required packages
+RUN apk add --no-cache ffmpeg openssl
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy go.mod and go.sum files to the working directory
-COPY go.mod go.sum ./
+# Generate self-signed certificates
+RUN openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj '/CN=localhost'
 
-# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
+# Copy and download dependencies first
+COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the source code from the current directory to the working directory
+# Copy source and build
 COPY . .
+RUN CGO_ENABLED=0 go build -o main ./cmd
 
-# Build the Go application
-RUN go build -o main ./cmd
+# Stage 2: Runtime
+FROM alpine:3.18
+WORKDIR /app
 
-# Stage 2: Create a minimal image with the built binary and ffmpeg
-FROM alpine:latest
-
-# Set the working directory inside the container
-WORKDIR /root/
-
-# Copy the pre-built binary file from the previous stage
-COPY --from=builder /app/main .
-
-# Install ffmpeg (if needed in the final image)
+# Install runtime dependencies
 RUN apk add --no-cache ffmpeg
 
-# Expose port 8080 to the outside world and 50051 for gRPC
-EXPOSE 8080 50051
+# Copy binary and configs
+COPY --from=builder /app/main .
+COPY --from=builder /app/cert.pem /app/cert.pem
+COPY --from=builder /app/key.pem /app/key.pem
+COPY .env .env
 
-# Command to run the executable
-CMD ["./main"]
+# Configure ports with fallbacks
+ENV GRPC_PORT=50051
+ENV HTTP_PORT=8080
+ENV PORT=8080
+
+# Expose both HTTP and gRPC ports
+EXPOSE $HTTP_PORT $GRPC_PORT 
+
+# Use shell form to allow variable substitution
+CMD ./main -grpc-port=$GRPC_PORT -http-port=$PORT
